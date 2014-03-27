@@ -101,13 +101,6 @@ describe(Support.getTestDialectTeaser("DAOFactory"), function () {
         })
       })
 
-      xit('doesn\'t throw an error when entering in a non integer value', function(done) {
-        this.User.find('a string value').success(function(user) {
-          expect(user).to.be.null
-          done()
-        })
-      })
-
       it('returns a single dao', function(done) {
         var self = this
         this.User.find(this.user.id).success(function(user) {
