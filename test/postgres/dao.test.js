@@ -15,7 +15,8 @@ if (dialect.match(/^postgres/)) {
         username: DataTypes.STRING,
         email: { type: DataTypes.ARRAY(DataTypes.TEXT) },
         settings: DataTypes.HSTORE,
-        document: { type: DataTypes.HSTORE, defaultValue: { default: 'value' } }
+        document: { type: DataTypes.HSTORE, defaultValue: { default: 'value' } },
+        documentJSON: DataTypes.JSON
       })
       this.User.sync({ force: true }).success(function() {
         done()
@@ -332,6 +333,22 @@ if (dialect.match(/^postgres/)) {
           })
           .error(console.log)
       })
+
+      it("should handle JSON correctly", function(done) {
+        this.User
+          .create({ username: 'user', email: ['foo@bar.com'], documentJSON: { created: { test: '"value"' }}})
+          .success(function(newUser) {
+            expect(newUser.documentJSON).to.deep.equal({ created: { test: '"value"' }})
+
+            // Check to see if updating an json field works
+            newUser.updateAttributes({ documentJSON: { should: 'update', to: 'this', first: 'place' }}).success(function(oldUser){
+              // Postgres always returns keys in alphabetical order (ascending)
+              expect(oldUser.documentJSON).to.deep.equal({first: 'place', should: 'update', to: 'this'})
+              done()
+            })
+          })
+          .error(console.log)
+      });
     })
 
     describe('[POSTGRES] Unquoted identifiers', function() {
