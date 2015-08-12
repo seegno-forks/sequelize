@@ -25,6 +25,12 @@ if (current.dialect.supports.JSON) {
           });
         });
 
+        test('NULL', function () {
+          expectsql(sql.escape(null, { type: new DataTypes.JSON() }), {
+            default: 'NULL'
+          });
+        });
+
         test('nested object', function () {
           expectsql(sql.escape({ some: 'nested', more: { nested: true }, answer: 42 }, { type: new DataTypes.JSON() }), {
             default: '\'{"some":"nested","more":{"nested":true},"answer":42}\''
@@ -38,6 +44,15 @@ if (current.dialect.supports.JSON) {
             'joe'
           ], { type: DataTypes.ARRAY(DataTypes.JSON)}), {
             postgres: 'ARRAY[\'{"some":"nested","more":{"nested":true},"answer":42}\',\'43\',\'"joe"\']::JSON[]'
+          });
+        });
+        test('array of JSONB', function () {
+          expectsql(sql.escape([
+            { some: 'nested', more: { nested: true }, answer: 42 },
+            43,
+            'joe'
+          ], { type: DataTypes.ARRAY(DataTypes.JSONB)}), {
+            postgres: 'ARRAY[\'{"some":"nested","more":{"nested":true},"answer":42}\',\'43\',\'"joe"\']::JSONB[]'
           });
         });
       });

@@ -6,6 +6,7 @@ var fs = require('fs')
   , Sequelize = require(__dirname + '/../index')
   , DataTypes = require(__dirname + '/../lib/data-types')
   , Config = require(__dirname + '/config/config')
+  , supportShim = require(__dirname + '/supportShim')
   , chai = require('chai')
   , expect = chai.expect;
 
@@ -17,10 +18,18 @@ chai.config.includeStack = true;
 chai.should();
 
 // Make sure errors get thrown when testing
+process.on('uncaughtException', function(e, promise) {
+  console.error('An unhandled exception occured:');
+  throw e;
+});
 Sequelize.Promise.onPossiblyUnhandledRejection(function(e, promise) {
+  console.error('An unhandled rejection occured:');
   throw e;
 });
 Sequelize.Promise.longStackTraces();
+
+// shim all Sequelize methods for testing for correct `options.logging` passing
+if (!process.env.COVERAGE && false) supportShim(Sequelize);
 
 var Support = {
   Sequelize: Sequelize,
@@ -112,7 +121,7 @@ var Support = {
       .getQueryInterface()
       .dropAllTables()
       .then(function() {
-        sequelize.modelManager.daos = [];
+        sequelize.modelManager.models = [];
         sequelize.models = {};
 
         return sequelize

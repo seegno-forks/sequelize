@@ -25,20 +25,26 @@ describe(Support.getTestDialectTeaser('Instance'), function() {
         raw: true
       });
 
+      expect(user.changed('meta')).to.equal(false);
       user.set('name', 'b');
+      user.set('meta', null);
       expect(user.changed('name')).to.equal(true);
+      expect(user.changed('meta')).to.equal(true);
     });
 
     it('should return falsy for unchanged primitive', function () {
       var user = this.User.build({
-        name: 'a'
+        name: 'a',
+        meta: null
       }, {
         isNewRecord: false,
         raw: true
       });
 
       user.set('name', 'a');
+      user.set('meta', null);
       expect(user.changed('name')).to.equal(false);
+      expect(user.changed('meta')).to.equal(false);
     });
 
     it('should return true for multiple changed values', function () {
@@ -54,6 +60,22 @@ describe(Support.getTestDialectTeaser('Instance'), function() {
       user.set('birthdate', new Date());
       expect(user.changed('name')).to.equal(true);
       expect(user.changed('birthdate')).to.equal(true);
+    });
+
+    it('should return false for two instances with same value', function () {
+      var milliseconds = 1436921941088;
+      var firstDate = new Date(milliseconds);
+      var secondDate = new Date(milliseconds);
+
+      var user = this.User.build({
+        birthdate: firstDate
+      }, {
+        isNewRecord: false,
+        raw: true
+      });
+
+      user.set('birthdate', secondDate);
+      expect(user.changed('birthdate')).to.equal(false);
     });
 
     it('should return true for changed JSON with same object', function () {

@@ -20,11 +20,11 @@ describe(Support.getTestDialectTeaser('Include'), function() {
       A.hasMany(B);
 
       B.belongsTo(D);
-      B.hasMany(C, {
+      B.belongsToMany(C, {
         through: 'BC'
       });
 
-      C.hasMany(B, {
+      C.belongsToMany(B, {
         through: 'BC'
       });
 
@@ -105,8 +105,8 @@ describe(Support.getTestDialectTeaser('Include'), function() {
           name: DataTypes.STRING(40)
         });
 
-      A.hasMany(B);
-      B.hasMany(A);
+      A.belongsToMany(B, {through: 'a_b'});
+      B.belongsToMany(A, {through: 'a_b'});
 
       return this.sequelize
         .sync({force: true})
@@ -168,6 +168,30 @@ describe(Support.getTestDialectTeaser('Include'), function() {
         .then(function(a) {
           expect(a).to.not.exist;
         });
+    });
+
+    it('should support a belongsTo with the targetKey option', function() {
+      var User = this.sequelize.define('User', { username: DataTypes.STRING })
+        , Task = this.sequelize.define('Task', { title: DataTypes.STRING });
+      User.removeAttribute('id');
+      Task.belongsTo(User, { foreignKey: 'user_name', targetKey: 'username'});
+
+      return this.sequelize.sync({ force: true }).then(function() {
+        return User.create({ username: 'bob' }).then(function(newUser) {
+          return Task.create({ title: 'some task' }).then(function(newTask) {
+            return newTask.setUser(newUser).then(function() {
+              return Task.find({
+                title: 'some task',
+                include: [ { model: User } ]
+              })
+                .then(function (foundTask) {
+                  expect(foundTask).to.be.ok;
+                  expect(foundTask.User.username).to.equal('bob');
+                });
+            });
+          });
+        });
+      });
     });
 
     it('should support many levels of belongsTo (with a lower level having a where)', function() {

@@ -3,7 +3,8 @@ language: node_js
 node_js:
   - "0.10"
   - "0.12"
-  - "iojs"
+  - "iojs-v1"
+  - "iojs-v2"
 
 sudo: false
 
@@ -25,6 +26,7 @@ addons:
 before_script:
   - "mysql -e 'create database sequelize_test;'"
   - "psql -c 'create database sequelize_test;' -U postgres"
+  - "psql sequelize_test -c 'create extension postgis;' -U postgres"
 
 script:
   - "make test"

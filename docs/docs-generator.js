@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 var dox = require('dox')
   , program = require('commander')
@@ -23,12 +23,15 @@ if (program.file) {
     {file:'lib/sequelize.js', output: 'sequelize'},
     {file:'lib/instance.js', output: 'instance'},
     {file:'lib/model.js', output: 'model'},
-    {file:'lib/querying.js', output: 'querying'},
     {file:'lib/hooks.js', output: 'hooks'},
-    {file:'lib/associations/mixin.js', output: 'associations'},
-    {file:'lib/promise.js', output: 'promise'},
+    {file:'lib/associations/mixin.js', output: 'associations/index'},
     {file:'lib/transaction.js', output: 'transaction'},
-    {file:'lib/data-types.js', output: 'datatypes'}
+    {file:'lib/data-types.js', output: 'datatypes'},
+    {file:'lib/deferrable.js', output: 'deferrable'},
+    {file:'lib/associations/belongs-to-many.js', output: 'associations/belongs-to-many'},
+    {file:'lib/associations/has-many.js', output: 'associations/has-many'},
+    {file:'lib/associations/has-one.js', output: 'associations/has-one'},
+    {file:'lib/associations/belongs-to.js', output: 'associations/belongs-to'}
   ];
 }
 
@@ -53,25 +56,10 @@ Comment.prototype.hasTag = function(tagName) {
 };
 
 Comment.prototype.getName = function () {
-  var tag;
+  var tag = (['name', 'class', 'property', 'method']).reduce(function (tag, tagName) {
+    return tag || this.getTag(tagName);
+  }.bind(this), null);
 
-  tag = this.getTag('name');
-
-  if (tag) {
-    return tag.string;
-  }
-
-  tag = this.getTag('class');
-  if (tag) {
-    return tag.string;
-  }
-
-  tag = this.getTag('property');
-  if (tag) {
-    return tag.types[0];
-  }
-
-  tag = this.getTag('method');
   if (tag) {
     return tag.string;
   }
@@ -216,7 +204,7 @@ var parseComments = function (comments, file) {
           if (see.local) {
             link = see.local.match(/{(.*?(?:|#.*?))}/)[1];
 
-            comment.putLine('* [' + link + '](api/' + link.toLowerCase() + ')');
+            comment.putLine('* [' + link + '](' + link.toLowerCase() + ')');
           } else {
             comment.putLine('* [' + see.title | see.url + '](' + see.url + ')');
           }
@@ -281,6 +269,7 @@ new git.Repo(path.dirname(__filename) + '/..', function (err, repo) {
       fs.readFile(file.file, function (err, code) {
         obj = dox.parseComments(code.toString(), { raw: true});
         path = program.out + '/' + file.output + '.md';
+
         console.log(path)
 
         var output = parseComments(obj, file.file);

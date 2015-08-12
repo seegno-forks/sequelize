@@ -186,6 +186,15 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
           default: '([email] = \'maker@mhansen.io\' OR [email] = \'janzeh@gmail.com\')'
         });
 
+        testsql('rank', {
+          $or: {
+            $lt: 100,
+            $eq: null
+          }
+        }, {
+          default: '([rank] < 100 OR [rank] IS NULL)'
+        });
+
         testsql('$or', [
           {email: 'maker@mhansen.io'},
           {email: 'janzeh@gmail.com'}
@@ -259,6 +268,15 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
           default: "([name] LIKE '%hello' AND [name] LIKE 'hello%')"
         });
 
+        testsql('rank', {
+          $and: {
+            $ne: 15,
+            $between: [10, 20]
+          }
+        }, {
+          default: '([rank] != 15 AND [rank] BETWEEN 10 AND 20)'
+        });
+
         testsql('name', {
             $and: [
               {like : '%someValue1%'},
@@ -293,6 +311,14 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
         $gt: 2
       }, {
         default: '[rank] > 2'
+      });
+    });
+
+    suite('$raw', function () {
+      testsql('rank', {
+        $raw: 'AGHJZ'
+      }, {
+        default: '[rank] = AGHJZ'
       });
     });
 
@@ -452,6 +478,37 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
             });
           });
         });
+
+        suite('$like', function() {
+          testsql('userId', {
+            $like: {
+              $any: ['foo', 'bar', 'baz']
+            }
+          }, {
+            postgres: "\"userId\" LIKE ANY ARRAY['foo','bar','baz']"
+          });
+          testsql('userId', {
+            $iLike: {
+              $any: ['foo', 'bar', 'baz']
+            }
+          }, {
+            postgres: "\"userId\" ILIKE ANY ARRAY['foo','bar','baz']"
+          });
+          testsql('userId', {
+            $notLike: {
+              $any: ['foo', 'bar', 'baz']
+            }
+          }, {
+            postgres: "\"userId\" NOT LIKE ANY ARRAY['foo','bar','baz']"
+          });
+          testsql('userId', {
+            $notILike: {
+              $any: ['foo', 'bar', 'baz']
+            }
+          }, {
+            postgres: "\"userId\" NOT ILIKE ANY ARRAY['foo','bar','baz']"
+          });
+        });
       });
     }
 
@@ -562,10 +619,11 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
           default: "([data]#>>'{nested, attribute}')::integer > 2"
         });
 
+        var dt = new Date();
         testsql('data', {
           nested: {
             attribute: {
-              $gt: new Date()
+              $gt: dt
             }
           }
         }, {
@@ -573,7 +631,7 @@ suite(Support.getTestDialectTeaser('SQL'), function() {
             type: new DataTypes.JSONB()
           }
         }, {
-          default: "([data]#>>'{nested, attribute}')::timestamptz > "+sql.escape(new Date())
+          default: "([data]#>>'{nested, attribute}')::timestamptz > "+sql.escape(dt)
         });
 
         testsql('data', {

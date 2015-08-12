@@ -2,6 +2,7 @@
 
 /* jshint -W030 */
 var chai = require('chai')
+  , sinon = require('sinon')
   , Sequelize = require('../../../index')
   , Promise = Sequelize.Promise
   , expect = chai.expect
@@ -24,7 +25,8 @@ describe(Support.getTestDialectTeaser('Model'), function() {
       },
       baz: {
         type: DataTypes.STRING,
-        field: 'zab'
+        field: 'zab',
+        defaultValue: 'BAZ_DEFAULT_VALUE'
       },
       blob: DataTypes.BLOB
     });
@@ -52,7 +54,7 @@ describe(Support.getTestDialectTeaser('Model'), function() {
             expect(created).not.to.be.ok;
           }
 
-          return this.User.find(42);
+          return this.User.findById(42);
         }).then(function(user) {
           expect(user.createdAt).to.be.ok;
           expect(user.username).to.equal('doe');
@@ -191,7 +193,7 @@ describe(Support.getTestDialectTeaser('Model'), function() {
             expect(created).not.to.be.ok;
           }
 
-          return this.User.find(42);
+          return this.User.findById(42);
         }).then(function(user) {
           expect(user.createdAt).to.be.ok;
           expect(user.username).to.equal('doe');
@@ -218,11 +220,75 @@ describe(Support.getTestDialectTeaser('Model'), function() {
             expect(created).not.to.be.ok;
           }
 
-          return this.User.find(42);
+          return this.User.findById(42);
         }).then(function(user) {
           expect(user.baz).to.equal('oof');
         });
       });
+
+      it('works with database functions', function() {
+        return this.User.upsert({ id: 42, username: 'john', foo: this.sequelize.fn('upper', 'mixedCase1')}).bind(this).then(function(created) {
+          if (dialect === 'sqlite') {
+            expect(created).to.be.undefined;
+          } else {
+            expect(created).to.be.ok;
+          }
+          return this.sequelize.Promise.delay(1000).bind(this).then(function() {
+            return this.User.upsert({ id: 42, username: 'doe', foo: this.sequelize.fn('upper', 'mixedCase2') });
+          });
+        }).then(function(created) {
+          if (dialect === 'sqlite') {
+            expect(created).to.be.undefined;
+          } else {
+            expect(created).not.to.be.ok;
+          }
+          return this.User.findById(42);
+        }).then(function(user) {
+          expect(user.createdAt).to.be.ok;
+          expect(user.username).to.equal('doe');
+          expect(user.foo).to.equal('MIXEDCASE2');
+        });
+      });
+
+      it('does not overwrite createdAt time on update', function() {
+        var originalCreatedAt;
+        var originalUpdatedAt;
+        var clock = sinon.useFakeTimers();
+        return this.User.create({ id: 42, username: 'john'}).bind(this).then(function() {
+          return this.User.findById(42);
+        }).then(function(user) {
+          originalCreatedAt = user.createdAt;
+          originalUpdatedAt = user.updatedAt;
+          clock.tick(5000);
+          return this.User.upsert({ id: 42, username: 'doe'});
+        }).then(function() {
+          return this.User.findById(42);
+        }).then(function(user) {
+          expect(user.updatedAt).to.be.gt(originalUpdatedAt);
+          expect(user.createdAt).to.deep.equal(originalCreatedAt);
+          clock.restore();
+        });
+      });
+
+      it('does not update using default values', function() {
+        return this.User.create({ id: 42, username: 'john', baz: 'new baz value'}).bind(this).then(function() {
+          return this.User.findById(42);
+        }).then(function(user) {
+          // 'username' should be 'john' since it was set
+          expect(user.username).to.equal('john');
+          // 'baz' should be 'new baz value' since it was set
+          expect(user.baz).to.equal('new baz value');
+          return this.User.upsert({ id: 42, username: 'doe'});
+        }).then(function() {
+          return this.User.findById(42);
+        }).then(function(user) {
+          // 'username' was updated
+          expect(user.username).to.equal('doe');
+          // 'baz' should still be 'new baz value' since it was not updated
+          expect(user.baz).to.equal('new baz value');
+        });
+      });
+
     });
   }
 });

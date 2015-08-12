@@ -44,6 +44,12 @@ if (Support.dialectIsMySQL()) {
           expectation: {id: 'INTEGER UNIQUE'}
         },
         {
+          arguments: [{id: {type: 'INTEGER', after: 'Bar'}}],
+          expectation: {id: 'INTEGER AFTER `Bar`'}
+        },
+
+        // Old references style
+        {
           arguments: [{id: {type: 'INTEGER', references: 'Bar'}}],
           expectation: {id: 'INTEGER REFERENCES `Bar` (`id`)'}
         },
@@ -62,7 +68,29 @@ if (Support.dialectIsMySQL()) {
         {
           arguments: [{id: {type: 'INTEGER', allowNull: false, autoIncrement: true, defaultValue: 1, references: 'Bar', onDelete: 'CASCADE', onUpdate: 'RESTRICT'}}],
           expectation: {id: 'INTEGER NOT NULL auto_increment DEFAULT 1 REFERENCES `Bar` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT'}
-        }
+        },
+
+        // New references style
+        {
+          arguments: [{id: {type: 'INTEGER', references: { model: 'Bar' }}}],
+          expectation: {id: 'INTEGER REFERENCES `Bar` (`id`)'}
+        },
+        {
+          arguments: [{id: {type: 'INTEGER', references: { model: 'Bar', key: 'pk' }}}],
+          expectation: {id: 'INTEGER REFERENCES `Bar` (`pk`)'}
+        },
+        {
+          arguments: [{id: {type: 'INTEGER', references: { model: 'Bar' }, onDelete: 'CASCADE'}}],
+          expectation: {id: 'INTEGER REFERENCES `Bar` (`id`) ON DELETE CASCADE'}
+        },
+        {
+          arguments: [{id: {type: 'INTEGER', references: { model: 'Bar' }, onUpdate: 'RESTRICT'}}],
+          expectation: {id: 'INTEGER REFERENCES `Bar` (`id`) ON UPDATE RESTRICT'}
+        },
+        {
+          arguments: [{id: {type: 'INTEGER', allowNull: false, autoIncrement: true, defaultValue: 1, references: { model: 'Bar' }, onDelete: 'CASCADE', onUpdate: 'RESTRICT'}}],
+          expectation: {id: 'INTEGER NOT NULL auto_increment DEFAULT 1 REFERENCES `Bar` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT'}
+        },
       ],
 
       createTableQuery: [
@@ -149,7 +177,7 @@ if (Support.dialectIsMySQL()) {
           expectation: 'SELECT count(*) AS `count` FROM `foo`;',
           context: QueryGenerator
         }, {
-          arguments: ['myTable', {where: "foo='bar'"}],
+          arguments: ['myTable', {where: ["foo='bar'"]}],
           expectation: "SELECT * FROM `myTable` WHERE foo='bar';",
           context: QueryGenerator
         }, {
@@ -290,7 +318,7 @@ if (Support.dialectIsMySQL()) {
               )
             };
           }],
-          expectation: "SELECT * FROM `myTable` WHERE (`myTable`.`archived` IS NULL AND COALESCE(`place_type_codename`, `announcement_type_codename`) IN ('Lost','Found'));",
+          expectation: "SELECT * FROM `myTable` WHERE (`myTable`.`archived` IS NULL AND COALESCE(`place_type_codename`, `announcement_type_codename`) IN ('Lost', 'Found'));",
           context: QueryGenerator,
           needsSequelize: true
         }, {
@@ -318,8 +346,8 @@ if (Support.dialectIsMySQL()) {
           context: QueryGenerator
         }, {
           title: 'no where arguments (string)',
-          arguments: ['myTable', {where: ''}],
-          expectation: 'SELECT * FROM `myTable`;',
+          arguments: ['myTable', {where: ['']}],
+          expectation: 'SELECT * FROM `myTable` WHERE 1=1;',
           context: QueryGenerator
         }, {
           title: 'no where arguments (null)',
@@ -506,46 +534,6 @@ if (Support.dialectIsMySQL()) {
         }
       ],
 
-      addIndexQuery: [
-        {
-          arguments: ['User', ['username', 'isAdmin'], {}, 'User'],
-          expectation: 'CREATE INDEX `user_username_is_admin` ON `User` (`username`, `isAdmin`)'
-        }, {
-          arguments: [
-            'User', [
-              { attribute: 'username', length: 10, order: 'ASC'},
-              'isAdmin'
-            ],
-            {},
-            'User'
-          ],
-          expectation: 'CREATE INDEX `user_username_is_admin` ON `User` (`username`(10) ASC, `isAdmin`)'
-        }, {
-          arguments: [
-            'User', ['username', 'isAdmin'], { parser: 'foo', indicesType: 'FULLTEXT', indexName: 'bar'}, 'User'
-          ],
-          expectation: 'CREATE FULLTEXT INDEX `bar` ON `User` (`username`, `isAdmin`) WITH PARSER foo'
-        }, {
-          arguments: [
-            'User', ['username', 'isAdmin'], { indicesType: 'UNIQUE'}, 'User'
-          ],
-          expectation: 'CREATE UNIQUE INDEX `user_username_is_admin` ON `User` (`username`, `isAdmin`)'
-        }, {
-          arguments: ['User', ['fieldB', {attribute: 'fieldA', collate: 'en_US', order: 'DESC', length: 5}], {
-            name: 'a_b_uniq',
-            unique: true,
-            method: 'BTREE'
-          }, 'User'],
-          expectation: 'CREATE UNIQUE INDEX `a_b_uniq` USING BTREE ON `User` (`fieldB`, `fieldA`(5) DESC)'
-        }, {
-          arguments: ['User', ['fieldC'], {
-            type: 'FULLTEXT',
-            concurrently: true
-          }, 'User'],
-          expectation: 'CREATE FULLTEXT INDEX `user_field_c` ON `User` (`fieldC`)'
-        }
-      ],
-
       showIndexesQuery: [
         {
           arguments: ['User'],
@@ -563,38 +551,6 @@ if (Support.dialectIsMySQL()) {
         }, {
           arguments: ['User', ['foo', 'bar']],
           expectation: 'DROP INDEX user_foo_bar ON `User`'
-        }
-      ],
-
-      hashToWhereConditions: [
-        {
-          arguments: [{ id: [1, 2, 3] }],
-          expectation: '`id` IN (1,2,3)'
-        },
-        {
-          arguments: [{ id: [] }],
-          expectation: '`id` IN (NULL)'
-        },
-        {
-          arguments: [{ maple: false, bacon: true }],
-          expectation: '`maple`=false AND `bacon`=true'
-        },
-        {
-          arguments: [{ beaver: [false, true] }],
-          expectation: '`beaver` IN (false,true)'
-        },
-        {
-          arguments: [{birthday: new Date(Date.UTC(2011, 6, 1, 10, 1, 55))}],
-          expectation: "`birthday`='2011-07-01 10:01:55'"
-        },
-        {
-          arguments: [{ birthday: new Date(Date.UTC(2011, 6, 1, 10, 1, 55)),
-                        otherday: new Date(Date.UTC(2013, 6, 2, 10, 1, 22)) }],
-          expectation: "`birthday`='2011-07-01 10:01:55' AND `otherday`='2013-07-02 10:01:22'"
-        },
-        {
-          arguments: [{ birthday: [new Date(Date.UTC(2011, 6, 1, 10, 1, 55)), new Date(Date.UTC(2013, 6, 2, 10, 1, 22))] }],
-          expectation: "`birthday` IN ('2011-07-01 10:01:55','2013-07-02 10:01:22')"
         }
       ]
     };

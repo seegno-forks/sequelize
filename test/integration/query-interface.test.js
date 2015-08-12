@@ -39,7 +39,7 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
               count = 0;
               expect(tableNames).to.have.length(1);
               return self.queryInterface.dropAllTables({logging: log}).then(function() {
-                expect(count).to.be.equal(1);
+                expect(count).to.be.at.least(1);
                 count = 0;
                 return self.queryInterface.showAllTables().then(function(tableNames) {
                   expect(tableNames).to.be.empty;
@@ -72,7 +72,7 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
     beforeEach(function() {
       var self = this;
       return this.queryInterface.dropTable('Group', {logging: log}).then(function() {
-        expect(count).to.be.equal(1);
+        expect(count).to.be.at.least(1);
         count = 0;
         return self.queryInterface.createTable('Group', {
           username: DataTypes.STRING,
@@ -107,6 +107,39 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
       });
     });
 
+    it('works with schemas', function() {
+      var self = this;
+      return self.sequelize.dropAllSchemas({logging: log}).then(function() {
+        return self.sequelize.createSchema('schema', {logging: log});
+      }).then(function() {
+        return self.queryInterface.createTable('table', {
+          name: {
+            type: DataTypes.STRING
+          },
+          isAdmin: {
+            type: DataTypes.STRING
+          }
+        }, {
+          schema: 'schema'
+        });
+      }).then(function() {
+          return self.queryInterface.addIndex({
+            schema: 'schema',
+            tableName: 'table'
+          }, ['name', 'isAdmin'], {
+            logging: log
+          }, 'schema_table').then(function() {
+            return self.queryInterface.showIndex({
+              schema: 'schema',
+              tableName: 'table'
+            }, {logging: log}).then(function(indexes) {
+              expect(indexes.length).to.eq(1);
+              count = 0;
+            });
+          });
+      });
+    });
+
     it('does not fail on reserved keywords', function() {
       return this.queryInterface.addIndex('Group', ['from']);
     });
@@ -123,12 +156,15 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
 
       return Users.sync({ force: true }).then(function() {
         return self.queryInterface.describeTable('_Users', {logging: log}).then(function(metadata) {
-          expect(count).to.be.equal(1);
+          expect(count).to.be.at.least(1);
           count = 0;
 
+          var id = metadata.id;
           var username = metadata.username;
           var isAdmin = metadata.isAdmin;
           var enumVals = metadata.enumVals;
+
+          expect(id.primaryKey).to.be.ok;
 
           var assertVal = 'VARCHAR(255)';
           switch (dialect) {
@@ -373,8 +409,10 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
       }).bind(this).then(function() {
         return this.queryInterface.addColumn('users', 'level_id', {
           type: DataTypes.INTEGER,
-          references: 'level',
-          referenceKey: 'id',
+          references: {
+            model: 'level',
+            key:   'id'
+          },
           onUpdate: 'cascade',
           onDelete: 'set null'
         }, {logging: log});
@@ -433,19 +471,25 @@ describe(Support.getTestDialectTeaser('QueryInterface'), function() {
           },
           admin: {
             type: DataTypes.INTEGER,
-            references: 'users',
-            referenceKey: 'id'
+            references: {
+              model: 'users',
+              key:   'id'
+            }
           },
           operator: {
             type: DataTypes.INTEGER,
-            references: 'users',
-            referenceKey: 'id',
+            references: {
+              model: 'users',
+              key:   'id'
+            },
             onUpdate: 'cascade'
           },
           owner: {
             type: DataTypes.INTEGER,
-            references: 'users',
-            referenceKey: 'id',
+            references: {
+              model: 'users',
+              key:   'id'
+            },
             onUpdate: 'cascade',
             onDelete: 'set null'
           }
